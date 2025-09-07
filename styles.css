@@ -1,0 +1,288 @@
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --on-bg: #0f172a;
+  --on-surface: #0f172a;
+  --muted: #64748b;
+
+  --primary: #6750a4;            /* Material baseline primary */
+  --primary-variant: #7c4dff;     /* Accent gradient end */
+
+  --outline: #e5e7eb;             /* borders/tracks */
+  --elev-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+body.dark {
+  --bg: #0b1020;
+  --surface: #111827;
+  --on-bg: #e5e7eb;
+  --on-surface: #e5e7eb;
+  --muted: #9aa6b2;
+
+  --primary: #a78bfa;
+  --primary-variant: #7c3aed;
+
+  --outline: #1f2937;
+  --elev-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Base */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: "Roboto", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--on-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 200ms ease, color 200ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+/* App bar */
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--outline);
+  box-shadow: var(--elev-shadow);
+}
+.app-title {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+/* Icon button (theme toggle) */
+.icon-button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--on-surface);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color 150ms ease, transform 100ms ease, color 150ms ease;
+}
+.icon-button:hover {
+  background: color-mix(in oklab, var(--on-surface) 8%, transparent);
+}
+.icon-button:active {
+  transform: scale(0.96);
+}
+
+/* Layout */
+.content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 24px auto;
+  padding: 0 16px 32px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  row-gap: 16px;
+}
+
+/* Card */
+.card {
+  background: var(--surface);
+  color: var(--on-surface);
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+  box-shadow: var(--elev-shadow);
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Controls */
+.controls {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+}
+.field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 6px 4px;
+}
+.field input[type="date"] {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 1rem;
+  color: var(--on-surface);
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease, color 150ms ease;
+  accent-color: var(--primary);
+  color-scheme: light; /* ensure built-in icon contrasts in light mode */
+}
+body.dark .field input[type="date"] {
+  color-scheme: dark; /* ensure built-in icon contrasts in dark mode */
+}
+.field input[type="date"]:focus {
+  border-color: color-mix(in oklab, var(--primary) 60%, var(--outline));
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent);
+}
+
+/* Gauge section */
+.gauge-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 60vh; /* Make the progress visualization the focal area */
+}
+.gauge {
+  position: relative;
+  width: min(75vmin, 900px);
+  height: min(75vmin, 900px);
+  padding: 16px; /* for card look */
+}
+
+/* SVG ring styles */
+#progressRing {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ring-track {
+  stroke: color-mix(in oklab, var(--outline) 70%, transparent);
+}
+.ring-bar {
+  stroke: url(#barGradient);
+  stroke-linecap: round;
+  stroke-dasharray: 1 999; /* will be overridden by JS */
+  stroke-dashoffset: 0;    /* will be overridden by JS */
+  transition: stroke-dashoffset 400ms ease, stroke 200ms ease;
+}
+
+/* Centered labels inside gauge */
+.gauge-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  text-align: center;
+}
+.gauge-center .percent {
+  font-weight: 700;
+  line-height: 1.1;
+  font-size: clamp(2rem, 8vmin, 6rem);
+}
+.gauge-center .caption {
+  margin-top: 6px;
+  font-size: clamp(0.9rem, 2.2vmin, 1.1rem);
+  color: var(--muted);
+}
+
+/* Timeline */
+.timeline {
+  padding: 16px;
+}
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.timeline-labels .label.center { text-align: center; flex: 1; }
+.timeline-labels .label.right { text-align: right; }
+
+.timeline .bar {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--outline) 70%, transparent);
+  overflow: hidden;
+}
+.timeline .bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-variant) 100%);
+  transition: width 400ms ease;
+}
+.timeline .marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  box-shadow: var(--elev-shadow);
+}
+.timeline .marker.start { left: 0%; }
+.timeline .marker.end { left: 100%; }
+.timeline .marker.today {
+  left: 0%;
+  border-color: var(--primary-variant);
+}
+
+/* Accessibility: reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .ring-bar,
+  .timeline .bar-fill,
+  .icon-button {
+    transition: none !important;
+  }
+}
+
+/* Date input calendar icon theming (Chromium/Edge) */
+.field input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;                 /* hide native icon */
+  pointer-events: none;       /* prevent clicks on hidden icon */
+}
+
+/* Custom date-picker button overlay (theme-aware via currentColor) */
+.field { position: relative; }
+.field.has-date-button input[type="date"] { padding-right: 44px; } /* room for overlay icon */
+.date-picker-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--on-surface);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 150ms ease, color 150ms ease, transform 100ms ease;
+  z-index: 1;
+}
+.date-picker-btn:hover {
+  background: color-mix(in oklab, var(--on-surface) 8%, transparent);
+}
+.date-picker-btn:active {
+  transform: translateY(-50%) scale(0.96);
+}
+.date-picker-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+body.dark .date-picker-btn { color: var(--on-surface); }
