@@ -13,17 +13,35 @@
     if (!ymd || typeof ymd !== "string") return null;
     const [y, m, d] = ymd.split("-").map((n) => Number(n));
     if (!y || !m || !d) return null;
-    // Use midday local time to avoid DST issues
-    return new Date(y, m - 1, d, 12);
+    // Use 10:30 local time as business cutoff
+    return new Date(y, m - 1, d, 10, 30);
   }
 
   function normalizeNoTime(d) {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10, 30);
   }
 
   function daysBetween(later, earlier) {
     const msPerDay = 24 * 60 * 60 * 1000;
     return Math.round((normalizeNoTime(later) - normalizeNoTime(earlier)) / msPerDay);
+  }
+
+  // UTC helpers for live mode
+  function parseYMDUTC(ymd) {
+    if (!ymd || typeof ymd !== "string") return null;
+    const [y, m, d] = ymd.split("-").map((n) => Number(n));
+    if (!y || !m || !d) return null;
+    // 10:30 UTC as business cutoff
+    return new Date(Date.UTC(y, m - 1, d, 10, 30, 0, 0));
+  }
+
+  function normalizeNoonUTC(d) {
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 10, 30, 0, 0));
+  }
+
+  function daysBetweenUTC(later, earlier) {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    return Math.round((normalizeNoonUTC(later) - normalizeNoonUTC(earlier)) / msPerDay);
   }
 
   function clampDate(date, minDate, maxDate) {
@@ -45,6 +63,7 @@
     const elStart = document.getElementById("start");
     const elToday = document.getElementById("today");
     const elEnd = document.getElementById("end");
+    const elIsLive = document.getElementById("isLive");
 
     const percentValue = document.getElementById("percentValue");
     const statusLabel = document.getElementById("statusLabel");
@@ -60,13 +79,14 @@
 
     // SVG ring
     const ringBar = document.querySelector(".ring-bar");
-    if (!elStart || !elToday || !elEnd || !themeToggle || !ringBar) {
+    if (!elStart || !elToday || !elEnd || !elIsLive || !themeToggle || !ringBar) {
       console.error("Initialization error: required elements not found.");
       return;
     }
     const rAttr = ringBar.getAttribute("r");
     const r = rAttr ? parseFloat(rAttr) : 84;
     const CIRCUMFERENCE = 2 * Math.PI * r;
+    let liveTimer = null;
 
     // Theme
     function setTheme(theme) {
@@ -93,6 +113,45 @@
       const systemPrefersDark =
         window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       setTheme(saved || (systemPrefersDark ? "dark" : "light"));
+    }
+
+    // Live mode
+    function startLiveTicker() {
+      if (liveTimer) return;
+      // Update at least once per second; use 500ms for smoother updates
+      liveTimer = setInterval(() => {
+        computeAndRender();
+      }, 100);
+    }
+
+    function stopLiveTicker() {
+      if (liveTimer) {
+        clearInterval(liveTimer);
+        liveTimer = null;
+      }
+    }
+
+    function setLiveEnabled(enabled) {
+      elIsLive.checked = !!enabled;
+      elToday.disabled = !!enabled;
+      try {
+        localStorage.setItem("daytoday:isLive", enabled ? "1" : "0");
+      } catch {}
+      if (enabled) {
+        startLiveTicker();
+      } else {
+        stopLiveTicker();
+      }
+      computeAndRender();
+    }
+
+    function initLive() {
+      let savedLive = "0";
+      try {
+        const v = localStorage.getItem("daytoday:isLive");
+        if (v === "1" || v === "true") savedLive = "1";
+      } catch {}
+      setLiveEnabled(savedLive === "1");
     }
 
     // Constraints
@@ -192,27 +251,63 @@
       const tStr = elToday.value;
       const eStr = elEnd.value;
 
-      const s = parseYMD(sStr);
-      const t = parseYMD(tStr);
-      const e = parseYMD(eStr);
+      const live = elIsLive && elIsLive.checked;
 
-      if (!s || !t || !e) return;
+      // Parse start/end
+      const s = live ? parseYMDUTC(sStr) : parseYMD(sStr);
+      const e = live ? parseYMDUTC(eStr) : parseYMD(eStr);
 
-      const totalDaysRaw = daysBetween(e, s);
-      const totalDays = Math.max(0, totalDaysRaw);
+      if (!s || !e) return;
 
-      const tClamped = clampDate(t, s, e);
-      const elapsedDays =
-        totalDays > 0 ? Math.max(0, Math.min(daysBetween(tClamped, s), totalDays)) : 0;
+      let progressPct = 0;
+      let elapsedDays = 0;
+      let totalDays = 0;
+      let totalDaysRaw = 0;
+      let t;
 
-      let progressPct;
-      if (totalDays > 0) {
-        progressPct = (elapsedDays / totalDays) * 100;
+      if (live) {
+        // Real-time UTC progress, ms-based
+        const nowMs = Date.now();
+        const startMs = s.getTime();
+        const endMs = e.getTime();
+        const clampedNow = Math.max(startMs, Math.min(endMs, nowMs));
+        const totalMs = Math.max(0, endMs - startMs);
+        const elapsedMs = Math.max(0, clampedNow - startMs);
+
+        progressPct = totalMs > 0 ? (elapsedMs / totalMs) * 100 : (nowMs >= endMs ? 100 : 0);
+        progressPct = Math.max(0, Math.min(100, progressPct));
+
+        // For labels/status, compute day counts using UTC noon alignment
+        totalDaysRaw = daysBetweenUTC(e, s);
+        totalDays = Math.max(0, totalDaysRaw);
+
+        const nowDateUTC = new Date(clampedNow);
+        elapsedDays = totalDays > 0
+          ? Math.max(0, Math.min(daysBetweenUTC(nowDateUTC, s), totalDays))
+          : 0;
+
+        t = new Date(nowMs); // For display only
       } else {
-        // start == end
-        progressPct = t.getTime() >= e.getTime() ? 100 : 0;
+        // Non-live behavior (unchanged)
+        const tParsed = parseYMD(tStr);
+        if (!tParsed) return;
+        t = tParsed;
+
+        totalDaysRaw = daysBetween(e, s);
+        totalDays = Math.max(0, totalDaysRaw);
+
+        const tClamped = clampDate(t, s, e);
+        elapsedDays =
+          totalDays > 0 ? Math.max(0, Math.min(daysBetween(tClamped, s), totalDays)) : 0;
+
+        if (totalDays > 0) {
+          progressPct = (elapsedDays / totalDays) * 100;
+        } else {
+          // start == end
+          progressPct = t.getTime() >= e.getTime() ? 100 : 0;
+        }
+        progressPct = Math.max(0, Math.min(100, progressPct));
       }
-      progressPct = Math.max(0, Math.min(100, progressPct));
 
       // Gauge ring + color
       const color = colorForProgress(progressPct);
@@ -221,7 +316,7 @@
       ringBar.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - progressPct / 100));
 
       // Percent text
-      const pctText = progressPct.toFixed(1).replace(/\.0$/, "");
+      const pctText = progressPct.toFixed(5);
       percentValue.textContent = pctText;
 
       // Status label
@@ -233,10 +328,14 @@
       timelineMarker.style.borderColor = color;
       let markerPosPct;
       if (totalDaysRaw <= 0) {
-        markerPosPct = t.getTime() >= e.getTime() ? 100 : 0;
+        markerPosPct = (live ? Date.now() : t.getTime()) >= e.getTime() ? 100 : 0;
       } else {
-        const pos = (daysBetween(t, s) / totalDaysRaw) * 100;
-        markerPosPct = Math.max(0, Math.min(100, pos));
+        if (live) {
+          markerPosPct = progressPct;
+        } else {
+          const pos = (daysBetween(t, s) / totalDaysRaw) * 100;
+          markerPosPct = Math.max(0, Math.min(100, pos));
+        }
       }
       timelineMarker.style.left = `${markerPosPct}%`;
 
@@ -272,11 +371,11 @@
         elToday.value = stored.today;
         elEnd.value = stored.end;
       } else {
-        // Default range: start = today - 30d, end = today + 30d, today = today
+        // Default range: start = today - 15d, end = today + 15d, today = today
         const start = new Date(today);
-        start.setDate(today.getDate() - 30);
+        start.setDate(today.getDate() - 15);
         const end = new Date(today);
-        end.setDate(today.getDate() + 30);
+        end.setDate(today.getDate() + 15);
         elStart.value = toYMD(start);
         elToday.value = todayStr;
         elEnd.value = toYMD(end);
@@ -290,6 +389,10 @@
         elEnd.addEventListener(evt, computeAndRender);
       });
 
+      if (elIsLive) {
+        elIsLive.addEventListener("change", () => setLiveEnabled(elIsLive.checked));
+      }
+
       themeToggle.addEventListener("click", () => {
         const isDark = document.body.classList.contains("dark");
         setTheme(isDark ? "light" : "dark");
@@ -302,6 +405,7 @@
     updateMinMaxConstraints();
     enhanceDatePickers();
     layoutDatePickerButtons();
+    initLive();
     computeAndRender();
     bindEvents();
 

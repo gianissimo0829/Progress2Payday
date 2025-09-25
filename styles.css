@@ -119,6 +119,30 @@ body {
   color: var(--muted);
   margin: 0 0 6px 4px;
 }
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.live-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  user-select: none;
+  cursor: pointer;
+}
+.live-toggle input[type="checkbox"] {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+}
+.field input[disabled] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 .field input[type="date"] {
   width: 100%;
   padding: 12px 14px;
@@ -151,6 +175,7 @@ body.dark .field input[type="date"] {
   width: min(75vmin, 900px);
   height: min(75vmin, 900px);
   padding: 16px; /* for card look */
+  margin-bottom: 12px; /* extra space under percentage + days */
 }
 
 /* SVG ring styles */
@@ -174,18 +199,23 @@ body.dark .field input[type="date"] {
 .gauge-center {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
   pointer-events: none;
   text-align: center;
 }
 .gauge-center .percent {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-weight: 700;
   line-height: 1.1;
   font-size: clamp(2rem, 8vmin, 6rem);
 }
 .gauge-center .caption {
-  margin-top: 6px;
+  position: absolute;
+  left: 50%;
+  top: calc(50% + clamp(1.8rem, 5.6vmin, 2.6rem));
+  transform: translateX(-50%);
   font-size: clamp(0.9rem, 2.2vmin, 1.1rem);
   color: var(--muted);
 }
